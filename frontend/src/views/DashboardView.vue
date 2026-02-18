@@ -83,6 +83,11 @@
       </div>
     </div>
 
+    <!-- Monthly Revenue Chart -->
+    <div class="mb-6">
+      <MonthlyRevenueChart />
+    </div>
+
     <!-- Quick Actions -->
     <div class="bg-white rounded-lg shadow p-6">
       <h3 class="text-lg font-semibold text-gray-800 mb-4">Pages</h3>
@@ -133,6 +138,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '../services/api';
+import MonthlyRevenueChart from '../components/MonthlyRevenueChart.vue';
 
 const user = ref(null);
 const stats = ref({

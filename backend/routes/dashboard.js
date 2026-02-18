@@ -5,5 +5,6 @@ const DashboardController = require('../controller/DashboardController');
 
 router.use(authMiddleware);
 router.get('/stats', DashboardController.getStats);
+router.get('/monthly-revenue', DashboardController.getMonthlyRevenue);
 
 module.exports = router;

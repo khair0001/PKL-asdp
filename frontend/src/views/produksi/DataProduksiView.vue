@@ -554,7 +554,7 @@
 
           <!-- Detail Penumpang -->
           <div class="mb-4">
-            <h3 class="text-lg font-semibold mb-2">Detail Penumpang</h3>
+            <h3 class="text-lg font-semibold mb-2">Detail Ekonomi</h3>
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
