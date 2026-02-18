@@ -178,10 +178,10 @@
             }}</span>
           </div>
           <div>
-            <span class="font-medium text-gray-700">Berat Kapal:</span>
+            <span class="font-medium text-gray-700">GT:</span>
             <span class="text-gray-900 ml-2">{{
               selectedKapalInfo.berat_kapal
-                ? `${selectedKapalInfo.berat_kapal} Ton`
+                ? `${selectedKapalInfo.berat_kapal}`
                 : "-"
             }}</span>
           </div>
