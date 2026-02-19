@@ -42,7 +42,7 @@ class AuthController {
           nama_lengkap: user.nama_lengkap
         },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES || '24h' }
+        { expiresIn: process.env.JWT_EXPIRES }
       );
 
       res.json({
