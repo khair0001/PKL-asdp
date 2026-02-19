@@ -121,26 +121,26 @@
       </div>
     </div>
 
+    <!-- Dropdown Per Halaman -->
+    <div class="px-1 py-4 border-b border-gray-200">
+      <div class="flex items-center">
+        <label class="text-sm text-gray-700 mr-2">Tampilkan:</label>
+        <select
+          v-model="perPage"
+          @change="onPerPageChange"
+          class="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option :value="10">10</option>
+          <option :value="25">25</option>
+          <option :value="50">50</option>
+          <option :value="9999999">Semua</option>
+        </select>
+        <span class="text-sm text-gray-700 ml-2">data</span>
+      </div>
+    </div>
+    
     <!-- Table -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
-      <!-- Dropdown Per Halaman -->
-      <div class="px-6 py-4 border-b border-gray-200">
-        <div class="flex items-center">
-          <label class="text-sm text-gray-700 mr-2">Tampilkan:</label>
-          <select
-            v-model="perPage"
-            @change="onPerPageChange"
-            class="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option :value="10">10</option>
-            <option :value="25">25</option>
-            <option :value="50">50</option>
-            <option :value="9999999">Semua</option>
-          </select>
-          <span class="text-sm text-gray-700 ml-2">data</span>
-        </div>
-      </div>
-
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-blue-600">

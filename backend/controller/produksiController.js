@@ -64,11 +64,14 @@ class ProduksiController {
         return res.status(400).json({ error: 'Semua field header harus diisi' });
       }
 
-      // Get snapshot data dari master
-      const perusahaan = await PerusahaanModel.getById(perusahaan_id);
-      const kapal = await KapalModel.getById(kapal_id);
-      const pelabuhan_asal = await PelabuhanModel.getById(pelabuhan_asal_id);
-      const rute = await RuteModel.getById(rute_id);
+      // Get snapshot data dari master - PARALLEL
+      const [perusahaan, kapal, pelabuhan_asal, rute] = await Promise.all([
+        PerusahaanModel.getById(perusahaan_id),
+        KapalModel.getById(kapal_id),
+        PelabuhanModel.getById(pelabuhan_asal_id),
+        RuteModel.getById(rute_id)
+      ]);
+      
       const pelabuhan_tujuan = await PelabuhanModel.getById(rute.pelabuhan_tujuan_id);
 
       // Create produksi header
@@ -89,39 +92,49 @@ class ProduksiController {
 
       const produksi = await ProduksiModel.create(produksiData, req.user.user_id);
 
-      // Insert penumpang
+      // Insert penumpang dan kendaraan - PARALLEL
+      const insertPromises = [];
+
       if (penumpang && penumpang.length > 0) {
         for (const p of penumpang) {
           if (p.jumlah > 0) {
-            await ProduksiPenumpangModel.create(
-              produksi.produksi_id,
-              p.kategori_penumpang_id,
-              p.nama_kategori,
-              p.jumlah,
-              p.tarif,
-              p.subtotal,
-              p.is_tarif_custom || false
+            insertPromises.push(
+              ProduksiPenumpangModel.create(
+                produksi.produksi_id,
+                p.kategori_penumpang_id,
+                p.nama_kategori,
+                p.jumlah,
+                p.tarif,
+                p.subtotal,
+                p.is_tarif_custom || false
+              )
             );
           }
         }
       }
 
-      // Insert kendaraan
       if (kendaraan && kendaraan.length > 0) {
         for (const k of kendaraan) {
           if (k.jumlah > 0) {
-            await ProduksiKendaraanModel.create(
-              produksi.produksi_id,
-              k.golongan_id,
-              k.nomor_golongan,
-              k.tipe_muatan,
-              k.jumlah,
-              k.tarif,
-              k.subtotal,
-              k.is_tarif_custom || false
+            insertPromises.push(
+              ProduksiKendaraanModel.create(
+                produksi.produksi_id,
+                k.golongan_id,
+                k.nomor_golongan,
+                k.tipe_muatan,
+                k.jumlah,
+                k.tarif,
+                k.subtotal,
+                k.is_tarif_custom || false
+              )
             );
           }
         }
+      }
+
+      // Wait for all inserts to complete
+      if (insertPromises.length > 0) {
+        await Promise.all(insertPromises);
       }
 
       // Get complete data
@@ -146,11 +159,14 @@ class ProduksiController {
         kendaraan
       } = req.body;
 
-      // Get snapshot data dari master
-      const perusahaan = await PerusahaanModel.getById(perusahaan_id);
-      const kapal = await KapalModel.getById(kapal_id);
-      const pelabuhan_asal = await PelabuhanModel.getById(pelabuhan_asal_id);
-      const rute = await RuteModel.getById(rute_id);
+      // Get snapshot data dari master - PARALLEL
+      const [perusahaan, kapal, pelabuhan_asal, rute] = await Promise.all([
+        PerusahaanModel.getById(perusahaan_id),
+        KapalModel.getById(kapal_id),
+        PelabuhanModel.getById(pelabuhan_asal_id),
+        RuteModel.getById(rute_id)
+      ]);
+      
       const pelabuhan_tujuan = await PelabuhanModel.getById(rute.pelabuhan_tujuan_id);
 
       // Update produksi header
@@ -172,42 +188,54 @@ class ProduksiController {
       await ProduksiModel.update(req.params.id, produksiData, req.user.user_id);
 
       // Delete existing details
-      await ProduksiPenumpangModel.deleteByProduksi(req.params.id);
-      await ProduksiKendaraanModel.deleteByProduksi(req.params.id);
+      await Promise.all([
+        ProduksiPenumpangModel.deleteByProduksi(req.params.id),
+        ProduksiKendaraanModel.deleteByProduksi(req.params.id)
+      ]);
 
-      // Insert new penumpang
+      // Insert new penumpang dan kendaraan - PARALLEL
+      const insertPromises = [];
+
       if (penumpang && penumpang.length > 0) {
         for (const p of penumpang) {
           if (p.jumlah > 0) {
-            await ProduksiPenumpangModel.create(
-              req.params.id,
-              p.kategori_penumpang_id,
-              p.nama_kategori,
-              p.jumlah,
-              p.tarif,
-              p.subtotal,
-              p.is_tarif_custom || false
+            insertPromises.push(
+              ProduksiPenumpangModel.create(
+                req.params.id,
+                p.kategori_penumpang_id,
+                p.nama_kategori,
+                p.jumlah,
+                p.tarif,
+                p.subtotal,
+                p.is_tarif_custom || false
+              )
             );
           }
         }
       }
 
-      // Insert new kendaraan
       if (kendaraan && kendaraan.length > 0) {
         for (const k of kendaraan) {
           if (k.jumlah > 0) {
-            await ProduksiKendaraanModel.create(
-              req.params.id,
-              k.golongan_id,
-              k.nomor_golongan,
-              k.tipe_muatan,
-              k.jumlah,
-              k.tarif,
-              k.subtotal,
-              k.is_tarif_custom || false
+            insertPromises.push(
+              ProduksiKendaraanModel.create(
+                req.params.id,
+                k.golongan_id,
+                k.nomor_golongan,
+                k.tipe_muatan,
+                k.jumlah,
+                k.tarif,
+                k.subtotal,
+                k.is_tarif_custom || false
+              )
             );
           }
         }
+      }
+
+      // Wait for all inserts to complete
+      if (insertPromises.length > 0) {
+        await Promise.all(insertPromises);
       }
 
       const result = await ProduksiModel.getById(req.params.id);
