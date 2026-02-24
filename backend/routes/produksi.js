@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const ProduksiController = require('../controller/produksiController');
-const ProduksiExportController = require('../controller/produksiExportController_v1');
+const ProduksiExportController = require('../controller/produksiExportController');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);

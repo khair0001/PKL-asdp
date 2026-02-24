@@ -14,11 +14,9 @@ class ProduksiExportController {
 
       // Validasi: rute_id wajib diisi
       if (!req.query.rute_id) {
-        return res
-          .status(400)
-          .json({
-            error: "Pilih rute terlebih dahulu sebelum mengekspor data.",
-          });
+        return res.status(400).json({
+          error: "Pilih rute terlebih dahulu sebelum mengekspor data.",
+        });
       }
 
       const filters = {
@@ -546,23 +544,28 @@ class ProduksiExportController {
       });
 
       const lastCol = dynStartCol + visibleCols.length - 1;
-
       // Set column widths
       const allCols = [
         { width: 20 },
-        { width: 20 },
+        { width: 10 },
+        { width: 40 },
         { width: 30 },
-        { width: 30 },
-        { width: 25 },
-        { width: 15 },
+        { width: 10 },
+        { width: 10 },
         { width: 15 },
         ...visibleCols.map((c) => ({
           width:
-            c.type === "pendapatan" || c.type === "rataRata"
-              ? 30
-              : c.label === "JML"
-                ? 15
-                : 15,
+            c.key === "pendTotal"
+              ? 20
+              : c.key === "pendPnp" ||
+                  c.key === "pendKnd" ||
+                  c.key === "pendBrg"
+                ? 20
+                : c.type === "rataRata"
+                  ? 20
+                  : c.label === "JML"
+                    ? 15
+                    : 15,
         })),
       ];
       worksheet.columns = allCols;
@@ -590,7 +593,7 @@ class ProduksiExportController {
       worksheet.getCell("B6").font = boldFont12;
 
       // ===================== ROW 8: TARIF =====================
-      worksheet.getRow(8).height = 25;
+      worksheet.getRow(8).height = 35;
 
       worksheet.mergeCells("E8:F8");
       const tarifLabelCell = worksheet.getCell("E8");
