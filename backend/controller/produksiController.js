@@ -59,6 +59,20 @@ class ProduksiController {
         kendaraan
       } = req.body;
 
+      // DEBUG: Log request body
+      console.log('[CREATE] Request body received:', {
+        perusahaan_id,
+        kapal_id,
+        pelabuhan_asal_id,
+        rute_id,
+        tanggal_produksi,
+        shift,
+        regu,
+        penumpang_count: penumpang?.length || 0,
+        kendaraan_count: kendaraan?.length || 0
+      });
+      console.log('[CREATE] Kendaraan array:', JSON.stringify(kendaraan, null, 2));
+
       // Validasi
       if (!perusahaan_id || !kapal_id || !pelabuhan_asal_id || !rute_id || !tanggal_produksi || !shift || !regu) {
         return res.status(400).json({ error: 'Semua field header harus diisi' });
@@ -91,11 +105,13 @@ class ProduksiController {
       };
 
       const produksi = await ProduksiModel.create(produksiData, req.user.user_id);
+      console.log('[CREATE] Produksi header created with ID:', produksi.produksi_id);
 
       // Insert penumpang dan kendaraan - PARALLEL
       const insertPromises = [];
 
       if (penumpang && penumpang.length > 0) {
+        console.log(`[CREATE] Inserting ${penumpang.length} penumpang records`);
         for (const p of penumpang) {
           if (p.jumlah > 0) {
             insertPromises.push(
@@ -107,15 +123,32 @@ class ProduksiController {
                 p.tarif,
                 p.subtotal,
                 p.is_tarif_custom || false
-              )
+              ).catch(err => {
+                console.error('[CREATE] Error inserting penumpang:', err);
+                throw err;
+              })
             );
           }
         }
+      } else {
+        console.log('[CREATE] No penumpang data to insert');
       }
 
       if (kendaraan && kendaraan.length > 0) {
+        console.log(`[CREATE] Inserting ${kendaraan.length} kendaraan records`);
         for (const k of kendaraan) {
+          console.log(`[CREATE] Processing kendaraan:`, k);
           if (k.jumlah > 0) {
+            console.log(`[CREATE] Kendaraan data to insert:`, {
+              produksi_id: produksi.produksi_id,
+              golongan_id: k.golongan_id,
+              nomor_golongan: k.nomor_golongan,
+              tipe_muatan: k.tipe_muatan,
+              jumlah: k.jumlah,
+              tarif: k.tarif,
+              subtotal: k.subtotal,
+              is_tarif_custom: k.is_tarif_custom || false
+            });
             insertPromises.push(
               ProduksiKendaraanModel.create(
                 produksi.produksi_id,
@@ -126,21 +159,39 @@ class ProduksiController {
                 k.tarif,
                 k.subtotal,
                 k.is_tarif_custom || false
-              )
+              ).catch(err => {
+                console.error('[CREATE] Error inserting kendaraan:', err);
+                console.error('[CREATE] Error details:', JSON.stringify(err, null, 2));
+                throw err;
+              })
             );
+          } else {
+            console.log(`[CREATE] Skipping kendaraan with jumlah 0:`, k);
           }
         }
+      } else {
+        console.log('[CREATE] No kendaraan data to insert (array is empty or undefined)');
       }
 
       // Wait for all inserts to complete
       if (insertPromises.length > 0) {
+        console.log(`[CREATE] Waiting for ${insertPromises.length} insert operations...`);
         await Promise.all(insertPromises);
+        console.log('[CREATE] All inserts completed successfully');
+      } else {
+        console.log('[CREATE] No insert operations to perform');
       }
 
       // Get complete data
       const result = await ProduksiModel.getById(produksi.produksi_id);
+      console.log('[CREATE] Final result:', {
+        produksi_id: result.produksi_id,
+        total_penumpang: result.total_penumpang,
+        total_kendaraan: result.total_kendaraan
+      });
       res.status(201).json({ message: 'Produksi berhasil disimpan', data: result });
     } catch (error) {
+      console.error('[CREATE] Fatal error:', error);
       next(error);
     }
   }
@@ -197,6 +248,7 @@ class ProduksiController {
       const insertPromises = [];
 
       if (penumpang && penumpang.length > 0) {
+        console.log(`[UPDATE] Inserting ${penumpang.length} penumpang records`);
         for (const p of penumpang) {
           if (p.jumlah > 0) {
             insertPromises.push(
@@ -208,15 +260,29 @@ class ProduksiController {
                 p.tarif,
                 p.subtotal,
                 p.is_tarif_custom || false
-              )
+              ).catch(err => {
+                console.error('[UPDATE] Error inserting penumpang:', err);
+                throw err;
+              })
             );
           }
         }
       }
 
       if (kendaraan && kendaraan.length > 0) {
+        console.log(`[UPDATE] Inserting ${kendaraan.length} kendaraan records`);
         for (const k of kendaraan) {
           if (k.jumlah > 0) {
+            console.log(`[UPDATE] Kendaraan data:`, {
+              produksi_id: req.params.id,
+              golongan_id: k.golongan_id,
+              nomor_golongan: k.nomor_golongan,
+              tipe_muatan: k.tipe_muatan,
+              jumlah: k.jumlah,
+              tarif: k.tarif,
+              subtotal: k.subtotal,
+              is_tarif_custom: k.is_tarif_custom || false
+            });
             insertPromises.push(
               ProduksiKendaraanModel.create(
                 req.params.id,
@@ -227,7 +293,10 @@ class ProduksiController {
                 k.tarif,
                 k.subtotal,
                 k.is_tarif_custom || false
-              )
+              ).catch(err => {
+                console.error('[UPDATE] Error inserting kendaraan:', err);
+                throw err;
+              })
             );
           }
         }
@@ -235,7 +304,9 @@ class ProduksiController {
 
       // Wait for all inserts to complete
       if (insertPromises.length > 0) {
+        console.log(`[UPDATE] Waiting for ${insertPromises.length} insert operations...`);
         await Promise.all(insertPromises);
+        console.log('[UPDATE] All inserts completed successfully');
       }
 
       const result = await ProduksiModel.getById(req.params.id);

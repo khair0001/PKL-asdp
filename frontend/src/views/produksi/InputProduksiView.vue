@@ -982,6 +982,16 @@ const submitProduksi = async () => {
       kendaraan: allKendaraan,
     };
 
+    // DEBUG LOGGING
+    console.log('=== SUBMIT PRODUKSI DEBUG ===');
+    console.log('Mode:', isEditMode.value ? 'UPDATE' : 'CREATE');
+    console.log('Total Penumpang:', allPenumpang.length);
+    console.log('Total Kendaraan:', allKendaraan.length);
+    console.log('Kendaraan Reguler:', kendaraanList.value.filter(k => k.jumlah > 0).length);
+    console.log('Kendaraan Tambahan:', kendaraanTambahan.value.filter(k => k.jumlah > 0 && k.golongan_id).length);
+    console.log('Payload Kendaraan:', JSON.stringify(allKendaraan, null, 2));
+    console.log('============================');
+
     if (isEditMode.value) {
       await api.put(`/produksi/${editProduksiId.value}`, payload);
       showNotification("Data produksi berhasil diupdate");
@@ -997,6 +1007,7 @@ const submitProduksi = async () => {
     }
   } catch (error) {
     console.error("Error:", error);
+    console.error("Error response:", error.response?.data);
 
     if (
       error.response?.data?.error?.includes("duplicate key") ||
@@ -1061,14 +1072,20 @@ const loadEditData = async () => {
     await onRuteChange();
 
     if (data.penumpang && data.penumpang.length > 0) {
+      // Track which kategori has been used in regular list
+      const usedKategori = new Set();
+
       data.penumpang.forEach((p) => {
         const regularItem = penumpangList.value.find(
           (item) => item.kategori_penumpang_id === p.kategori_penumpang_id,
         );
 
-        if (regularItem && !p.is_tarif_custom) {
+        // Put in regular list if: exists in regular list, not custom tarif, and not yet used
+        if (regularItem && !p.is_tarif_custom && !usedKategori.has(p.kategori_penumpang_id)) {
           regularItem.jumlah = p.jumlah;
+          usedKategori.add(p.kategori_penumpang_id);
         } else {
+          // Put in tambahan list if: custom tarif OR duplicate kategori OR not in regular list
           penumpangTambahan.value.push({
             kategori_penumpang_id: p.kategori_penumpang_id,
             nama_kategori: p.nama_kategori,
@@ -1081,14 +1098,20 @@ const loadEditData = async () => {
     }
 
     if (data.kendaraan && data.kendaraan.length > 0) {
+      // Track which golongan has been used in regular list
+      const usedGolongan = new Set();
+
       data.kendaraan.forEach((k) => {
         const regularItem = kendaraanList.value.find(
           (item) => item.golongan_id === k.golongan_id,
         );
 
-        if (regularItem && !k.is_tarif_custom) {
+        // Put in regular list if: exists in regular list, not custom tarif, and not yet used
+        if (regularItem && !k.is_tarif_custom && !usedGolongan.has(k.golongan_id)) {
           regularItem.jumlah = k.jumlah;
+          usedGolongan.add(k.golongan_id);
         } else {
+          // Put in tambahan list if: custom tarif OR duplicate golongan OR not in regular list
           kendaraanTambahan.value.push({
             golongan_id: k.golongan_id,
             nomor_golongan: k.nomor_golongan,

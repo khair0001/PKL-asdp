@@ -121,24 +121,52 @@
       </div>
     </div>
 
-    <!-- Dropdown Per Halaman -->
+    <!-- Dropdown Per Halaman & Export Button -->
     <div class="px-1 py-4 border-b border-gray-200">
-      <div class="flex items-center">
-        <label class="text-sm text-gray-700 mr-2">Tampilkan:</label>
-        <select
-          v-model="perPage"
-          @change="onPerPageChange"
-          class="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <label class="text-sm text-gray-700 mr-2">Tampilkan:</label>
+          <select
+            v-model="perPage"
+            @change="onPerPageChange"
+            class="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option :value="10">10</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="9999999">Semua</option>
+          </select>
+          <span class="text-sm text-gray-700 ml-2">data</span>
+        </div>
+
+        <button
+          @click="exportToExcel"
+          :disabled="produksi.length === 0 || isExporting"
+          :class="[
+            'flex items-center px-4 py-2 rounded-lg font-medium transition-colors',
+            produksi.length === 0 || isExporting
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-green-600 text-white hover:bg-green-700',
+          ]"
         >
-          <option :value="10">10</option>
-          <option :value="25">25</option>
-          <option :value="50">50</option>
-          <option :value="9999999">Semua</option>
-        </select>
-        <span class="text-sm text-gray-700 ml-2">data</span>
+          <svg
+            class="w-5 h-5 mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+          {{ isExporting ? "Mengekspor..." : "Export Excel" }}
+        </button>
       </div>
     </div>
-    
+
     <!-- Table -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
       <div class="overflow-x-auto">
@@ -791,6 +819,7 @@ const sortColumn = ref(null);
 const sortDirection = ref(null);
 const currentPage = ref(1);
 const perPage = ref(10);
+const isExporting = ref(false);
 
 const filteredKapalOptions = computed(() => {
   if (filter.value.perusahaan_id.length === 0) {
@@ -1102,6 +1131,89 @@ const deleteItem = async (item) => {
     loadData();
   } catch (error) {
     alert("Gagal menghapus data");
+  }
+};
+
+const exportToExcel = async () => {
+  if (produksi.value.length === 0) {
+    alert("Tidak ada data untuk diekspor");
+    return;
+  }
+
+  if (filter.value.rute_id.length === 0) {
+    alert("Pilih rute terlebih dahulu sebelum mengekspor data.");
+    return;
+  }
+
+  try {
+    isExporting.value = true;
+
+    // Build query params sama seperti loadData
+    const params = new URLSearchParams();
+    if (filter.value.tanggal_dari)
+      params.append("tanggal_dari", filter.value.tanggal_dari);
+    if (filter.value.tanggal_sampai)
+      params.append("tanggal_sampai", filter.value.tanggal_sampai);
+    if (filter.value.perusahaan_id.length > 0)
+      params.append("perusahaan_id", filter.value.perusahaan_id.join(","));
+    if (filter.value.kapal_id.length > 0)
+      params.append("kapal_id", filter.value.kapal_id.join(","));
+    if (filter.value.pelabuhan_asal_id.length > 0)
+      params.append(
+        "pelabuhan_asal_id",
+        filter.value.pelabuhan_asal_id.join(","),
+      );
+    if (filter.value.rute_id.length > 0)
+      params.append("rute_id", filter.value.rute_id.join(","));
+    if (filter.value.shift.length > 0)
+      params.append("shift", filter.value.shift.join(","));
+    if (filter.value.regu.length > 0)
+      params.append("regu", filter.value.regu.join(","));
+
+    // Fetch Excel file
+    const response = await api.get(
+      `/produksi/export/excel?${params.toString()}`,
+      {
+        responseType: "blob",
+      },
+    );
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+
+    // Get filename from Content-Disposition header or use default
+    const contentDisposition = response.headers["content-disposition"];
+    let filename = "Laporan_Produksi.xlsx";
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Export error:", error);
+    // Baca pesan error dari blob response
+    if (error.response?.data instanceof Blob) {
+      const text = await error.response.data.text();
+      try {
+        const json = JSON.parse(text);
+        alert(json.error || "Gagal mengekspor data ke Excel");
+      } catch {
+        alert("Gagal mengekspor data ke Excel");
+      }
+    } else {
+      alert(error.response?.data?.error || "Gagal mengekspor data ke Excel");
+    }
+  } finally {
+    isExporting.value = false;
   }
 };
 
