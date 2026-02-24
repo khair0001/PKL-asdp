@@ -584,12 +584,11 @@ class ProduksiExportController {
       worksheet.getCell("B3").value =
         "PELABUHAN PT. ASDP INDONESIA FERRY (PERSERO)";
       worksheet.getCell("B3").font = boldFont12;
-      worksheet.getCell("B4").value = `PELABUHAN    : ${pelabuhan}`;
+      worksheet.getCell("B4").value = `PELABUHAN : ${pelabuhan}`;
       worksheet.getCell("B4").font = boldFont12;
-      worksheet.getCell("B5").value = `CABANG   : ${pelabuhan}`;
+      worksheet.getCell("B5").value = `CABANG       : ${pelabuhan}`;
       worksheet.getCell("B5").font = boldFont12;
-      worksheet.getCell("B6").value =
-        `PERIODE    : ${periodeAwal} s/d ${periodeAkhir}`;
+      worksheet.getCell("B6").value = `PERIODE       : ${periodeAwal} s/d ${periodeAkhir}`;
       worksheet.getCell("B6").font = boldFont12;
 
       // ===================== ROW 8: TARIF =====================
