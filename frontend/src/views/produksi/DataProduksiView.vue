@@ -1145,6 +1145,11 @@ const exportToExcel = async () => {
     return;
   }
 
+  if (!filter.value.tanggal_dari || !filter.value.tanggal_sampai) {
+    alert("Pilih periode terlebih dahulu sebelum mengekspor data.");
+    return;
+  }
+
   try {
     isExporting.value = true;
 
@@ -1183,17 +1188,19 @@ const exportToExcel = async () => {
     const link = document.createElement("a");
     link.href = url;
 
-    // Get filename from Content-Disposition header or use default
-    const contentDisposition = response.headers["content-disposition"];
-    let filename = "Laporan_Produksi.xlsx";
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-      if (filenameMatch && filenameMatch[1]) {
-        filename = filenameMatch[1];
-      }
-    }
+    const dari = filter.value.tanggal_dari || "tgl";
+    const sampai = filter.value.tanggal_sampai || "tgl";
+    const namaRute =
+      filter.value.rute_id.length > 0
+        ? rute.value
+            .filter((r) => filter.value.rute_id.includes(r.rute_id))
+            .map((r) => r.nama_rute)
+            .join("_")
+        : "semua_rute";
+    const filename = `Laporan_Produksi_${namaRute}_${dari}_sampai_${sampai}.xlsx`;
 
     link.setAttribute("download", filename);
+
     document.body.appendChild(link);
     link.click();
     link.remove();

@@ -12,11 +12,15 @@ class ProduksiExportController {
       console.log("=== EXPORT EXCEL START ===");
       console.log("Query params:", req.query);
 
-      // Validasi: rute_id wajib diisi
+      // Validasi
       if (!req.query.rute_id) {
         return res.status(400).json({
           error: "Pilih rute terlebih dahulu sebelum mengekspor data.",
         });
+      }
+
+      if (!req.query.tanggal_dari || !req.query.tanggal_sampai) {
+        return res.status(400).json({ error: "Pilih periode (tanggal dari dan tanggal sampai) terlebih dahulu sebelum mengekspor data." });
       }
 
       const filters = {
@@ -100,13 +104,8 @@ class ProduksiExportController {
         });
       });
 
-      // Build tarif data - SELALU tampilkan golongan 1-9
       const GOLONGAN_STANDAR = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-      // Mapping nomor_golongan yang punya pasangan PNP + BRG
       const GOLONGAN_PNP_BRG_MAP = {};
-
-      // Konversi angka ke Romawi untuk label header
       const ROMAWI = {
         1: "I",
         2: "II",
@@ -137,11 +136,10 @@ class ProduksiExportController {
             }
           });
 
-          // Pastikan semua golongan 1-9 ada
           const golonganStandarDitemukan = new Set(
             tarifStandar.map((t) => parseInt(t.golongan?.nomor_golongan || 0)),
           );
-          // Kumpulkan nomor standar yang sudah ada (termasuk yang punya tipe_muatan)
+
           const nomorStandarAda = new Set();
           tarifStandar.forEach((t) =>
             nomorStandarAda.add(parseInt(t.golongan?.nomor_golongan || 0)),
@@ -182,7 +180,6 @@ class ProduksiExportController {
         }));
       }
 
-      // Enrich tarifData dengan info custom dan tipe_muatan
       tarifData = tarifData.map((t) => {
         const sampleCustom = dataWithDetails
           .flatMap((d) => d.kendaraan)
@@ -198,7 +195,6 @@ class ProduksiExportController {
         };
       });
 
-      // ===================== BUILD GOLONGAN_PNP_BRG_MAP =====================
       // Temukan nomor_golongan yang punya 2 row (satu PNP, satu BRG)
       tarifData.forEach((t) => {
         const nomor = parseInt(t.golongan?.nomor_golongan || 0);
@@ -217,6 +213,7 @@ class ProduksiExportController {
           GOLONGAN_PNP_BRG_MAP[nomor].pnp_hasCustom = t.hasCustom;
         }
       });
+
       // Hanya simpan nomor_golongan yang benar-benar punya keduanya (PNP & BRG)
       Object.keys(GOLONGAN_PNP_BRG_MAP).forEach((nomor) => {
         const g = GOLONGAN_PNP_BRG_MAP[nomor];
@@ -225,7 +222,6 @@ class ProduksiExportController {
 
       console.log("GOLONGAN_PNP_BRG_MAP:", GOLONGAN_PNP_BRG_MAP);
 
-      // Get tarif penumpang
       const getTarifPenumpang = (data, kategori, isCustom) => {
         for (const item of data) {
           const found = item.penumpang.find(
@@ -248,7 +244,6 @@ class ProduksiExportController {
       const tarifBayiNormal = getTarifPenumpang(dataWithDetails, "bayi", false);
       const tarifBayiCustom = getTarifPenumpang(dataWithDetails, "bayi", true);
 
-      // Sort and group data by kapal
       dataWithDetails.sort((a, b) => {
         const pc = (a.perusahaan?.nama_perusahaan || "").localeCompare(
           b.perusahaan?.nama_perusahaan || "",
@@ -331,8 +326,7 @@ class ProduksiExportController {
       });
 
       console.log(`Grouped data: ${groupedData.length} kapal`);
-
-      // ===================== BUILD EXCEL =====================
+    
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Laporan Produksi");
 
@@ -361,10 +355,8 @@ class ProduksiExportController {
         return letter;
       };
 
-      // ===================== COLUMN LAYOUT =====================
       const dynamicCols = [];
 
-      // Penumpang cols
       dynamicCols.push({
         key: "dws",
         label: "DWS",
@@ -402,7 +394,6 @@ class ProduksiExportController {
         type: "jmlPnp",
       });
 
-      // ===================== KENDARAAN COLS =====================
       const nomorSudahDiproses = new Set();
 
       tarifData.forEach((tarif) => {
@@ -534,7 +525,7 @@ class ProduksiExportController {
         type: "rataRata",
       });
 
-      // Filter out hidden columns
+
       const visibleCols = dynamicCols.filter((c) => !c.hideIfEmpty);
 
       const dynStartCol = 7;
@@ -544,12 +535,11 @@ class ProduksiExportController {
       });
 
       const lastCol = dynStartCol + visibleCols.length - 1;
-      // Set column widths
       const allCols = [
         { width: 20 },
         { width: 10 },
         { width: 40 },
-        { width: 30 },
+        { width: 40 },
         { width: 10 },
         { width: 10 },
         { width: 15 },
@@ -570,7 +560,6 @@ class ProduksiExportController {
       ];
       worksheet.columns = allCols;
 
-      // ===================== HEADER INFO (rows 1-6) =====================
       const pelabuhan = produksiList[0]?.nama_pelabuhan_asal || "-";
       const cabang = produksiList[0]?.nama_perusahaan || "-";
       const periodeAwal = filters.tanggal_dari || "-";
@@ -590,8 +579,6 @@ class ProduksiExportController {
       worksheet.getCell("B5").font = boldFont12;
       worksheet.getCell("B6").value = `PERIODE       : ${periodeAwal} s/d ${periodeAkhir}`;
       worksheet.getCell("B6").font = boldFont12;
-
-      // ===================== ROW 8: TARIF =====================
       worksheet.getRow(8).height = 35;
 
       worksheet.mergeCells("E8:F8");
@@ -626,7 +613,6 @@ class ProduksiExportController {
         }
       });
 
-      // ===================== ROWS 9-12: HEADERS =====================
       const headerStyle = {
         font: { name: "Calibri", size: 12, bold: true },
         fill: {
@@ -646,14 +632,12 @@ class ProduksiExportController {
         Object.assign(cell, headerStyle);
       };
 
-      // Fixed header columns
       mergeHeader(9, 2, 12, 2, "NO");
       mergeHeader(9, 3, 12, 3, "KAPAL");
       mergeHeader(9, 4, 12, 4, "PERUSAHAAN");
       mergeHeader(9, 5, 12, 5, "GT");
       mergeHeader(9, 6, 12, 6, "TRIP");
 
-      // Row 9: PENUMPANG (kosong, label di bawah)
       const pnpAllCols = visibleCols
         .filter((c) => c.type === "pnp" || c.type === "jmlPnp")
         .map((c) => colIndexMap[c.key]);
@@ -668,7 +652,6 @@ class ProduksiExportController {
         );
       }
 
-      // Row 9: area kendaraan dikosongkan (label utama di baris 10)
       const kndAllCols = visibleCols
         .filter((c) => c.type === "knd" || c.type === "jmlKnd")
         .map((c) => colIndexMap[c.key]);
@@ -677,7 +660,6 @@ class ProduksiExportController {
         mergeHeader(9, kndAllCols[0], 9, kndAllCols[kndAllCols.length - 1], "");
       }
 
-      // Row 9: PENDAPATAN
       const pendCols = visibleCols
         .filter((c) => c.type === "pendapatan")
         .map((c) => colIndexMap[c.key]);
@@ -691,7 +673,6 @@ class ProduksiExportController {
         );
       }
 
-      // Row 9-12: RATA-RATA
       if (colIndexMap["rataRata"]) {
         mergeHeader(
           9,
@@ -702,7 +683,6 @@ class ProduksiExportController {
         );
       }
 
-      // Row 10: sub-group penumpang EKONOMI
       const dwsCols = visibleCols
         .filter((c) => c.type === "pnp" && c.key.startsWith("dws"))
         .map((c) => colIndexMap[c.key]);
@@ -721,7 +701,6 @@ class ProduksiExportController {
         );
       }
 
-      // JML penumpang spans rows 10-12
       if (colIndexMap["jmlPnp"]) {
         mergeHeader(
           11,
@@ -732,7 +711,6 @@ class ProduksiExportController {
         );
       }
 
-      // Row 11: EKONOMI merge semua kolom DWS + BAYI
       const allPnpDataCols = [...dwsCols, ...bayiCols];
       if (allPnpDataCols.length > 0) {
         mergeHeader(
@@ -744,7 +722,6 @@ class ProduksiExportController {
         );
       }
 
-      // Row 12: individual DWS, DWS+, BAYI, BAYI+
       visibleCols
         .filter((c) => c.type === "pnp")
         .forEach((col) => {
@@ -757,8 +734,6 @@ class ProduksiExportController {
           );
         });
 
-      // ===================== KENDARAAN HEADER ROWS 10-12 =====================
-      // Build golonganGroups per nomor_golongan
       const golonganGroups = {};
       const nomorGolonganSudahDiproses = new Set();
 
@@ -802,7 +777,6 @@ class ProduksiExportController {
         }
       });
 
-      // Row 10: "KENDARAAN PER GOLONGAN" — satu merge besar mencakup semua kolom kendaraan (tanpa JML)
       const kndOnlyCols = visibleCols
         .filter((c) => c.type === "knd")
         .map((c) => colIndexMap[c.key]);
@@ -817,7 +791,6 @@ class ProduksiExportController {
         );
       }
 
-      // JML kendaraan spans rows 10-12
       if (colIndexMap["jmlKnd"]) {
         mergeHeader(
           11,
@@ -828,9 +801,6 @@ class ProduksiExportController {
         );
       }
 
-      // Row 11:
-      // - Golongan PNP+BRG: merge semua sub-kolomnya label "GOL X"
-      // - Golongan normal: merge rows 11-12 (ditangani di blok berikutnya)
       Object.values(golonganGroups).forEach((g) => {
         if (g.isPnpBrg && g.cols.length > 0) {
           mergeHeader(
@@ -843,7 +813,6 @@ class ProduksiExportController {
         }
       });
 
-      // Row 11-12:
       visibleCols
         .filter((c) => c.type === "knd")
         .forEach((col) => {
@@ -866,7 +835,6 @@ class ProduksiExportController {
           }
         });
 
-      // Pendapatan individual labels row 10-12
       pendCols.forEach((colIdx, i) => {
         const labels = [
           "PENUMPANG",
@@ -877,7 +845,6 @@ class ProduksiExportController {
         mergeHeader(10, colIdx, 12, colIdx, labels[i] || "");
       });
 
-      // Apply borders to header rows 9-12
       for (let row = 9; row <= 12; row++) {
         for (let col = 2; col <= lastCol; col++) {
           setBorder(worksheet.getCell(row, col), "thin");
@@ -888,7 +855,6 @@ class ProduksiExportController {
       worksheet.getRow(11).height = 20;
       worksheet.getRow(12).height = 20;
 
-      // ===================== DATA ROWS =====================
       let currentRow = 13;
       let perusahaanMergeStart = null;
       let lastPerusahaan = null;
@@ -926,7 +892,6 @@ class ProduksiExportController {
         setCell("bayi", item.bayi);
         setCell("bayiCustom", item.bayiCustom);
 
-        // JML penumpang formula
         if (colIndexMap["jmlPnp"]) {
           const pnpFormulaKeys = visibleCols
             .filter((c) => c.type === "pnp")
@@ -937,7 +902,6 @@ class ProduksiExportController {
           row.getCell(colIndexMap["jmlPnp"]).value = formula ? { formula } : 0;
         }
 
-        // Kendaraan — setiap golongan_id sudah terpisah PNP/BRG dari struktur data
         tarifData.forEach((tarif) => {
           setCell(
             `knd_${tarif.golongan_id}_normal`,
@@ -949,7 +913,6 @@ class ProduksiExportController {
           );
         });
 
-        // JML kendaraan formula
         if (colIndexMap["jmlKnd"]) {
           const kndFormulaKeys = visibleCols
             .filter((c) => c.type === "knd")
@@ -961,8 +924,6 @@ class ProduksiExportController {
           row.getCell(colIndexMap["jmlKnd"]).value = { formula };
         }
 
-        // ===== PENDAPATAN =====
-        // PENDAPATAN PENUMPANG
         if (colIndexMap["pendPnp"]) {
           const pnpTerms = visibleCols
             .filter((c) => c.type === "pnp" && c.tarifRow8)
@@ -974,7 +935,6 @@ class ProduksiExportController {
             pnpTerms.length > 0 ? { formula: pnpTerms.join("+") } : 0;
         }
 
-        // PENDAPATAN KENDARAAN (PNP = penumpang, bukan barang)
         if (colIndexMap["pendKnd"]) {
           const kndPnpTerms = [];
           visibleCols
@@ -1033,7 +993,6 @@ class ProduksiExportController {
           };
         }
 
-        // Styling
         row.getCell(2).alignment = { horizontal: "center", vertical: "center" };
         row.getCell(3).alignment = { horizontal: "left", vertical: "center" };
         row.getCell(4).alignment = { horizontal: "left", vertical: "center" };
@@ -1066,7 +1025,6 @@ class ProduksiExportController {
         currentRow++;
       });
 
-      // Finalize perusahaan merge
       if (perusahaanMergeStart !== null) {
         perusahaanMergeRanges.push({
           start: perusahaanMergeStart,
@@ -1088,7 +1046,6 @@ class ProduksiExportController {
         }
       });
 
-      // ===================== TOTAL ROW =====================
       const totalRow = worksheet.getRow(currentRow);
       const dataStartRow = 13;
       const dataEndRow = currentRow - 1;
@@ -1147,7 +1104,6 @@ class ProduksiExportController {
         vertical: "middle",
       };
 
-      // ===================== PAGE SETUP =====================
       worksheet.views = [{ state: "frozen", ySplit: 12 }];
       worksheet.pageSetup = {
         paperSize: 9,
